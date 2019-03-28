@@ -1,0 +1,82 @@
+from binaryninja.log import log_warn, log_info, log_error
+from binaryninja.types import Symbol
+from binaryninja.enums import SymbolType
+
+import pe_utils
+
+from pe_utils import pe_parsing
+
+
+def resolve_imports(bv):
+    libs = pe_parsing.get_imports(bv)
+
+    for lib in libs:
+        if lib.name.lower() in pe_utils.files:
+            resolve_imports_for_library(bv, lib)
+
+
+def resolve_imports_for_library(bv, lib):
+    source_bv = pe_utils.files[lib.name.lower()]
+    exports = pe_parsing.get_exports(source_bv)
+
+    for import_ in lib.imports:
+        # Find the name
+        name = None
+        for export in exports:
+            if export.ord == import_.ordinal:
+                print(export)
+                name = export.name
+                export_symbol = export.symbol
+
+        if not name:
+            log_warn("Unable to find name for %r" % import_)
+
+        # Redefine the IAT thunk symbol
+        original_symbol = bv.get_symbol_at(import_.datavar_addr)
+
+        # Delete any existing auto symbols
+        if original_symbol:
+            log_info("Renaming %s to %s:%s" % (original_symbol.name, lib.name,
+                                               name))
+            bv.undefine_auto_symbol(original_symbol)
+        else:
+            log_info("Creating IAT symbol %s:%s @ %08x" %
+                     (lib.name.split(".")[0], name, import_.datavar_addr))
+
+        # Create the new symbol
+        bv.define_auto_symbol(Symbol(
+            SymbolType.ImportAddressSymbol, import_.datavar_addr, name + "@IAT",
+            namespace=lib.name.split(".")[0],
+        ))
+
+        # Transplant type info
+        export_func = source_bv.get_function_at(export_symbol.address)
+        type_tokens = [token.text for token in export_func.type_tokens]
+        i = type_tokens.index(export_symbol.name)
+        type_tokens[i] = "(*const func_name)"
+
+        type_string = "".join(type_tokens)
+        log_info("Setting type for %s to %r" % (name, type_string))
+
+        try:
+            (type_, name) = bv.parse_type_string(type_string)
+        except:
+            log_error("Invalid type, skipping")
+
+        bv.define_data_var(import_.datavar_addr, type_)
+
+        # FIXME: Apply params to ImportedFunctionSymbols -- check xref on
+        # datavar and filter by associated symbols
+        # This doesn't actually seem to help and apparently I didn't have to do
+        # this before? Maybe I just didn't handle jump
+        """
+        for ref in bv.get_code_refs(import_.datavar_addr):
+            if ref.function.symbol.type is not SymbolType.ImportedFunctionSymbol:
+                continue
+
+            type_tokens = [token.text for token in export_func.type_tokens]
+            type_string = "".join(type_tokens)
+            (type_, name) = bv.parse_type_string(type_string)
+            print(type_)
+            bv.define_data_var(ref.function.start, type_)
+        """
