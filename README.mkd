@@ -1,0 +1,41 @@
+# Binary Ninja PE Utils
+Bunch'a niche utilities for working with PE-based binaries.
+
+## Features
+
+### Resolve ordinal imports
+Ordinal imports can be resolved to symbol names from external BNDBs.
+If you rename an exported function in the external BNDB, the name you
+defined will be used instead of the original export name.
+
+Given an example import as shown below:
+
+![Import table with unresolved ordinals](screens/table_not_loaded.png)
+
+![IAT with unresolved ordinals](screens/iat_unsynced.png)
+
+By loading a binary view for `OLEAUT32.dll`, we can update the import
+names for the target binary view with the real name behind the import:
+
+![Import table with resolved ordinals](screens/table_loaded.png)
+
+![IAT with resolved ordinals](screens/iat_synced.png)
+
+
+### Synchronize symbol names and types across binaries
+Types defined in external BNDBs can be transferred to the current binary
+view in order to aid with reversing.
+
+Continuing from the above example, we can rename the arg of the function
+`SysStringLen` from the external BNDB `OLEAUT32.dll`:
+
+![Function with renamed argument](screens/func_renamed.png)
+
+When synced, the IAT will be updated with the new argument:
+
+![IAT with renamed argument](screens/iat_renamed.png)
+
+We can also see that the new argument is exposed through other
+disassembly views, like MLIL:
+
+![MLIL call with renamed argument](screens/mlil_call.png)
