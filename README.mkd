@@ -29,7 +29,7 @@ view in order to aid with reversing.
 Continuing from the above example, we can rename the arg of the function
 `SysStringLen` from the external BNDB `OLEAUT32.dll`:
 
-![Function with renamed argument](screens/func_renamed.png)
+![Function with renamed argument](screens/func_renamed_arg.png)
 
 When synced, the IAT will be updated with the new argument:
 
@@ -38,4 +38,12 @@ When synced, the IAT will be updated with the new argument:
 We can also see that the new argument is exposed through other
 disassembly views, like MLIL:
 
-![MLIL call with renamed argument](screens/mlil_call.png)
+![MLIL call with renamed argument](screens/mlil_renamed_arg.png)
+
+As mentioned earlier, symbol names also get transferred between loaded BNDBs.
+Renaming the export from the external BNDB then resyncing, we can see that the
+changes is transferred to the target binary view:
+
+![Function with renamed symbol](screens/func_renamed_sym.png)
+
+![MLIL call with renamed symbol](screens/mlil_renamed_sym.png)
