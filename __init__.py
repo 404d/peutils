@@ -55,24 +55,22 @@ def register_file(bv):
 PluginCommand.register(
     "PE\\Load binary",
     "Load the current binary into the PE binary registry",
-    register_file, do_lock=False, prefilter=bv_is_pe
+    register_file, is_valid=bv_is_pe
 )
 PluginCommand.register(
     "PE\\Resolve imports",
     "Resolve import names and load types",
-    sync.resolve_imports, do_lock=False, prefilter=bv_is_pe
+    sync.resolve_imports, is_valid=bv_is_pe
 )
 
 
 PluginCommand.register(
     "PE\\Debug\\PE tables",
     "Show the IAT and EAT as seen by PE Utils",
-    reports.generate_table_graph, do_lock=False,
-    prefilter=bv_is_pe
+    reports.generate_table_graph, is_valid=bv_is_pe
 )
 PluginCommand.register(
     "PE\\Debug\\Binary relationship graph",
     "Show a relationship graph for the currently loaded BVs",
-    all_bvs(reports.generate_relation_graph), do_lock=False,
-    prefilter=bv_is_pe
+    all_bvs(reports.generate_relation_graph), is_valid=bv_is_pe
 )

@@ -2,21 +2,21 @@ from binaryninja.log import log_warn, log_info, log_error
 from binaryninja.types import Symbol
 from binaryninja.enums import SymbolType
 
-import pe_utils
+import peutils
 
-from pe_utils import pe_parsing
+from peutils import pe_parsing
 
 
 def resolve_imports(bv):
     libs = pe_parsing.get_imports(bv)
 
     for lib in libs:
-        if lib.name.lower() in pe_utils.files:
+        if lib.name.lower() in peutils.files:
             resolve_imports_for_library(bv, lib)
 
 
 def resolve_imports_for_library(bv, lib):
-    source_bv = pe_utils.files[lib.name.lower()]
+    source_bv = peutils.files[lib.name.lower()]
     exports = pe_parsing.get_exports(source_bv)
 
     for import_ in lib.imports:

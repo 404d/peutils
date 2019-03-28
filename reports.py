@@ -1,4 +1,4 @@
-import pe_utils
+import peutils
 
 from .pe_parsing import *
 
@@ -173,10 +173,10 @@ def generate_table_graph(bv):
                 ),
                 InstructionTextToken(
                     InstructionTextTokenType.RegisterToken
-                    if lib.name.lower() in pe_utils.files
+                    if lib.name.lower() in peutils.files
                     else InstructionTextTokenType.CharacterConstantToken,
 
-                    "Loaded" if lib.name.lower() in pe_utils.files
+                    "Loaded" if lib.name.lower() in peutils.files
                     else "Not loaded",
                 ),
                 InstructionTextToken(
@@ -188,8 +188,8 @@ def generate_table_graph(bv):
         ]
 
         exports = []
-        if lib.name.lower() in pe_utils.files:
-            exports = get_exports(pe_utils.files[lib.name.lower()])
+        if lib.name.lower() in peutils.files:
+            exports = get_exports(peutils.files[lib.name.lower()])
 
         n = 0
         for import_ in lib.imports:
