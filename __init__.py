@@ -14,6 +14,8 @@ Notes:
         - etc...
 
 Todo:
+    - Proper handling of users loading EAT-less binaries using the load command
+        - Should I just ignore it? Add it but never look up the BV?
     - Use StructuredDataView to get some of the stuff?
         https://api.binary.ninja/binaryninja.binaryview.StructuredDataView.html
     - Symbol syncing
