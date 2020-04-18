@@ -1,9 +1,15 @@
 import codecs
+import sys
 
 import binaryninja.interaction
 from binaryninja.flowgraph import FlowGraph, FlowGraphNode
 from binaryninja.function import DisassemblyTextLine, InstructionTextToken
 from binaryninja.enums import InstructionTextTokenType, BranchType
+
+if sys.version_info[0] == 3:
+    decode_as = "ascii"
+else:
+    decode_as = None
 
 PE_32BIT = 0x10b
 PE_64BIT = 0x20b
@@ -169,6 +175,9 @@ class Library(object):
             ordinal = read_int(bv, lookup, 2)
             name = read_cstring(bv, lookup + 2)
 
+            if decode_as:
+                name = name.decode(decode_as)
+
             import_ = Import(ordinal, name, datavar_addr)
 
             self.imports.append(import_)
@@ -193,6 +202,9 @@ def get_imports(bv):
 
         name_addr = bv.start + read_int(bv, iat + n * (4 * 5) + 0xc, 4)
         name = read_cstring(bv, name_addr)
+
+        if decode_as:
+            name = name.decode(decode_as)
 
         lib = Library(name, lookup_table, import_table)
         lib.read_imports(bv)

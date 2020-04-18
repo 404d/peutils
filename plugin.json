@@ -2,7 +2,7 @@
     "pluginmetadataversion": 2,
     "name": "peutils",
     "type": ["helper"],
-    "api": ["python2"],
+    "api": ["python3"],
     "description": "Binary Ninja plugin providing various niche utilities for working with PE binaries",
     "longdescription": "Utilities for fetching analysis details like function signatures and symbol names from one binaryview to another",
     "license": {

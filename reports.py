@@ -1,4 +1,5 @@
 import peutils
+from binaryninja import log_info
 
 from .pe_parsing import *
 
@@ -26,6 +27,7 @@ well_known_libraries = [
 ]
 def generate_relation_graph(bvs):
     nodes = set()
+    node_labels = dict()
     edges = dict()
 
     first_node = None
@@ -33,8 +35,9 @@ def generate_relation_graph(bvs):
 
     for bv in bvs:
         name = get_eat_name(bv)
-        nodes.add(name)
+        nodes.add(name.lower())
         bv_nodes.add(name.lower())
+        node_labels[name.lower()] = name
 
         if not first_node:
             first_node = name.lower()
@@ -42,7 +45,8 @@ def generate_relation_graph(bvs):
         edges[name] = set()
 
         for library in get_imports(bv):
-            nodes.add(library.name)
+            nodes.add(library.name.lower())
+            node_labels[library.name.lower()] = library.name
 
             edges[name.lower()].add(library.name.lower())
 
@@ -79,7 +83,7 @@ def generate_relation_graph(bvs):
 
     for node in nodes:
         graph_node = FlowGraphNode(graph)
-        graph_node.lines = [node]
+        graph_node.lines = [node_labels[node]]
         graph.append(graph_node)
 
         if node.lower() in start_nodes and node in bv_nodes:
