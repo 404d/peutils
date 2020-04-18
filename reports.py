@@ -63,10 +63,10 @@ def generate_relation_graph(bvs):
     for start_node in edges:
         has_relation = False
         for related_node in [edge for edge in edges if edge != start_node]:
-            print("Testing %s for %s" % (start_node, related_node))
+            log_info("Testing %s for %s" % (start_node, related_node))
             if start_node in edges[related_node]:
                 has_relation = True
-                print("Found relation")
+                log_info("Found relation")
                 break
 
         if not has_relation:
@@ -87,7 +87,7 @@ def generate_relation_graph(bvs):
         graph.append(graph_node)
 
         if node.lower() in start_nodes and node in bv_nodes:
-            print("Startnode: %s" % node)
+            log_info("Startnode: %s" % node)
             start_graphnode.add_outgoing_edge(BranchType.UnconditionalBranch, graph_node)
 
         graph_nodes[node.lower()] = graph_node
@@ -97,7 +97,7 @@ def generate_relation_graph(bvs):
             continue
 
         for edge in edges[node.lower()]:
-            print("%s -> %s" % (node, edge))
+            log_info("%s -> %s" % (node, edge))
             if node.lower() in bv_nodes and edge.lower() in bv_nodes:
                 graph_node.add_outgoing_edge(BranchType.TrueBranch, graph_nodes[edge.lower()])
             elif edge.lower() in well_known_libraries:

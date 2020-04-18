@@ -53,7 +53,7 @@ def register_file(bv):
     name = pe_parsing.get_eat_name(bv)
 
     files[name.lower()] = bv
-    log_info("Loaded binary view %r" % name.lower())
+    log_info("Registered PE binary view %r" % name.lower())
 
 
 PluginCommand.register(

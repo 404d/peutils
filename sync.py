@@ -24,7 +24,7 @@ def resolve_imports_for_library(bv, lib):
         name = None
         for export in exports:
             if export.ord == import_.ordinal:
-                print(export)
+                log_info(export)
                 name = export.name
                 export_symbol = export.symbol
 
