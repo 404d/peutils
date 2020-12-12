@@ -28,10 +28,6 @@ def resolve_imports_for_library(bv, lib):
                 name = export.name
                 export_symbol = export.symbol
 
-        if not export_symbol:
-            log_warn("Unable to resolve corresponding export for %r" % import_)
-            continue
-
         if not name:
             log_warn("Unable to find name for %r" % import_)
             continue
