@@ -96,6 +96,9 @@ class Export(object):
         # symbol.name is the mangled name, full_name is demangled
         name = self.symbol.full_name
 
+        if not name:
+            name = "unnamed_export"
+
         if self.name_index > 1:
             name += "#%d" % self.name_index
 
@@ -155,6 +158,9 @@ class Library(object):
         self.lookup_table = lookup_table
         self.import_table = import_table
         self.imports = []
+
+    def __repr__(self):
+        return "Library(%r)" % self.name
 
     def read_imports(self, bv):
         n = 0

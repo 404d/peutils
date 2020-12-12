@@ -24,12 +24,17 @@ def resolve_imports_for_library(bv, lib):
         name = None
         for export in exports:
             if export.ord == import_.ordinal:
-                log_info(export)
+                log_info(repr(export))
                 name = export.name
                 export_symbol = export.symbol
 
+        if not export_symbol:
+            log_warn("Unable to resolve corresponding export for %r" % import_)
+            continue
+
         if not name:
             log_warn("Unable to find name for %r" % import_)
+            continue
 
         # Redefine the IAT thunk symbol
         original_symbol = bv.get_symbol_at(import_.datavar_addr)
@@ -51,6 +56,13 @@ def resolve_imports_for_library(bv, lib):
 
         # Transplant type info
         export_func = source_bv.get_function_at(export_symbol.address)
+        if not export_func:
+            log_warn(
+                "Unable to resolve function for export %r in library %r" %
+                (export_symbol, lib)
+            )
+            continue
+
         type_tokens = [token.text for token in export_func.type_tokens]
         i = type_tokens.index(export_symbol.name)
         type_tokens[i] = "(*const func_name)"
