@@ -147,7 +147,7 @@ def get_exports(bv):
 
 
 def read_cstring(bv, addr):
-    end = bv.find_next_data(addr, "\x00")
+    end = bv.find_next_data(addr, b"\x00")
     length = end - addr
     return bv.read(addr, length)
 
