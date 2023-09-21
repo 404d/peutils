@@ -35,20 +35,22 @@ def generate_relation_graph(bvs):
 
     for bv in bvs:
         name = get_eat_name(bv)
-        nodes.add(name.lower())
-        bv_nodes.add(name.lower())
-        node_labels[name.lower()] = name
+        lower_name = name.lower()
+        nodes.add(lower_name)
+        bv_nodes.add(lower_name)
+        node_labels[lower_name] = name
 
         if not first_node:
-            first_node = name.lower()
+            first_node = lower_name
 
-        edges[name] = set()
+        edges[lower_name] = set()
 
         for library in get_imports(bv):
-            nodes.add(library.name.lower())
-            node_labels[library.name.lower()] = library.name
+            imp_lower_name = library.name.lower()
+            nodes.add(imp_lower_name)
+            node_labels[imp_lower_name] = library.name
 
-            edges[name.lower()].add(library.name.lower())
+            edges[lower_name].add(imp_lower_name)
 
     graph_nodes = {}
     graph = FlowGraph()

@@ -1,6 +1,7 @@
 from binaryninja.log import log_warn, log_info, log_error
 from binaryninja.types import Symbol
 from binaryninja.enums import SymbolType
+from binaryninja.demangle import demangle_ms
 
 import peutils
 
@@ -18,15 +19,17 @@ def resolve_imports(bv):
 def resolve_imports_for_library(bv, lib):
     source_bv = peutils.files[lib.name.lower()]
     exports = pe_parsing.get_exports(source_bv)
+    
+    export_by_ord = {export.ord: export for export in exports}
 
     for import_ in lib.imports:
         # Find the name
         name = None
-        for export in exports:
-            if export.ord == import_.ordinal:
-                log_info(repr(export))
-                name = export.name
-                export_symbol = export.symbol
+        if import_.ordinal in export_by_ord:
+            export = export_by_ord[import_.ordinal]
+            log_info(repr(export))
+            name = export.name
+            export_symbol = export.symbol
 
         if not name:
             log_warn("Unable to find name for %r" % import_)
@@ -59,17 +62,27 @@ def resolve_imports_for_library(bv, lib):
             )
             continue
 
-        type_tokens = [token.text for token in export_func.type_tokens]
-        i = type_tokens.index(export_symbol.name)
-        type_tokens[i] = "(*const func_name)"
-
-        type_string = "".join(type_tokens)
-        log_info("Setting type for %s to %r" % (name, type_string))
-
         try:
-            (type_, name) = bv.parse_type_string(type_string)
+            (type_, name) = demangle_ms(bv.arch, export_symbol.name)
         except:
-            log_error("Invalid type, skipping")
+            log_error("Invalid name, skipping")
+            continue
+
+        if type_ is None:
+            type_tokens = [token.text for token in export_func.type_tokens]
+            if export_symbol.name not in type_tokens:
+                log_error("Unknown error")
+                continue
+            i = type_tokens.index(export_symbol.name)
+            type_tokens[i] = "(*const func_name)"
+
+            type_string = "".join(type_tokens)
+            log_info("Setting type for %s to %r" % (name, type_string))
+
+            try:
+                (type_, name) = bv.parse_type_string(type_string)
+            except:
+                log_error("Invalid type, skipping")
 
         bv.define_data_var(import_.datavar_addr, type_)
 

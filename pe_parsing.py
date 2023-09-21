@@ -5,6 +5,7 @@ import binaryninja.interaction
 from binaryninja.flowgraph import FlowGraph, FlowGraphNode
 from binaryninja.function import DisassemblyTextLine, InstructionTextToken
 from binaryninja.enums import InstructionTextTokenType, BranchType
+from binaryninja.log import log_warn
 
 if sys.version_info[0] == 3:
     decode_as = "ascii"
@@ -22,10 +23,11 @@ if None:
 def get_directory_addr(bv, directory_offset):
     raw = bv.parent_view
     pe_offset = get_pe_header_addr(bv)
-    field_offset = raw.read(pe_offset + directory_offset, 4)
-
     # Quick and dirty size-agnostic cross-version bytes-to-int conversion
-    field_offset = int(codecs.encode(field_offset[::-1], "hex"), 16)
+    field_offset = raw.read_int(pe_offset + directory_offset, 4)
+    if not field_offset:
+        return 0
+
     dir_addr = bv.start + field_offset
 
     return dir_addr
@@ -85,7 +87,7 @@ def get_pe_header_addr(bv):
 
 
 class Export(object):
-    def __init__(self, addr, symbol, ord_, name_index=0):
+    def __init__(self, addr, symbol, ord_, hint, name_index=0):
         self.addr = addr
         self.ord = ord_
         self.symbol = symbol
@@ -111,6 +113,8 @@ class Export(object):
 
 def get_eat_name(bv):
     eat = get_eat_addr(bv)
+    if not eat:
+        return ""
 
     dll_name_ptr = bv.start + read_int(bv, eat + 0xc, 4)
     dll_name = bv.get_strings(dll_name_ptr)[0].value
@@ -119,29 +123,42 @@ def get_eat_name(bv):
 
 def get_exports(bv):
     eat = get_eat_addr(bv)
+    if not eat:
+        return []
 
-    eat_items = read_int(bv, eat + 0x14, 4)
-    eat_addr = read_int(bv, eat + 0x1c, 4)
-    ord_addr = read_int(bv, eat + 0x24, 4)
-    # name_addr = read_int(raw, eat + 0x20)
+    ord_base = read_int(bv, eat + 0x10, 4)
+    eat_addr_items = read_int(bv, eat + 0x14, 4)
+    eat_name_ptrs = read_int(bv, eat + 0x18, 4)
+    eat_addr_rva = read_int(bv, eat + 0x1c, 4)
+    name_addr_rva = read_int(bv, eat + 0x20)
+    ord_addr_rva = read_int(bv, eat + 0x24, 4)
 
     # Keep track of how many ordinals refer to a given symbol
     name_counter = {}
 
     exports = []
-    for n in range(eat_items):
-        addr = bv.start + read_int(bv, bv.start + eat_addr + n * 4, 4)
-        ord_ = read_int(bv, bv.start + ord_addr + n * 2, 2)
-        # name_ptr = bv.start + read_int(raw, name_addr + n * bv.address_size)
+    for hint in range(eat_name_ptrs):
+        ord_ = read_int(bv, bv.start + ord_addr_rva + hint * 2, 2) # by hint
+        addr = bv.start + read_int(bv, bv.start + eat_addr_rva + ord_ * 4, 4)
+        name_ptr = bv.start + read_int(bv, bv.start + name_addr_rva + hint * bv.address_size)
+        name = read_cstring(bv, name_ptr) # mangled name
+        if decode_as:
+            name = name.decode(decode_as)
         symbol = bv.get_symbol_at(addr)
+        for symbol in bv.get_symbols(start=addr):
+            if symbol.name == name:
+                break
+        else:
+            log_warn("Unable to find symbol for export %r with hint %d" % (name, hint))
+            continue
 
         # Dupe export counting
-        if symbol.name.lower() not in name_counter:
-            name_counter[symbol.name.lower()] = 0
-        name_counter[symbol.name.lower()] += 1
+        if name not in name_counter:
+            name_counter[name] = 0
+        name_counter[name] += 1
 
-        exports.append(Export(addr, symbol, ord_,
-                              name_index=name_counter[symbol.name.lower()]))
+        exports.append(Export(addr, symbol, ord_ + ord_base, hint,
+                              name_index=name_counter[name]))
 
     return exports
 
@@ -164,15 +181,18 @@ class Library(object):
 
     def read_imports(self, bv):
         n = 0
-        while read_int(bv, self.lookup_table + n * bv.address_size):
+        flag_mask = (1 << (bv.address_size * 8 - 1)) - 1
+        while True:
             lookup = read_int(bv, self.lookup_table + n * bv.address_size)
+            if not lookup:
+                break
             datavar_addr = self.import_table + n * bv.address_size
             n += 1
 
             # We won't find *any* info here if this is an ordinal import.
-            if lookup >> (bv.address_size * 8 - 1):
+            if lookup & ~flag_mask:
                 # Strip the ordinal flag
-                lookup ^= 1 << (bv.address_size * 8 - 1)
+                lookup &= flag_mask
                 self.imports.append(Import(lookup, None, datavar_addr))
                 continue
 
@@ -195,15 +215,24 @@ class Import(object):
         self.name = name
         self.datavar_addr = datavar_addr
 
+    def __repr__(self):
+        return "Import(%r, %r, 0x%08x)" % (self.ordinal, self.name,
+                                           self.datavar_addr)
+
 
 def get_imports(bv):
     iat = get_iat_addr(bv)
+    if not iat:
+        return []
 
     imports = []
 
     n = 0
-    while read_int(bv, iat + n * (4 * 5), 4):
-        lookup_table = bv.start + read_int(bv, iat + n * (4 * 5), 4)
+    while True:
+        lookup_table_rva = read_int(bv, iat + n * (4 * 5), 4)
+        if not lookup_table_rva:
+            break
+        lookup_table = bv.start + lookup_table_rva
         import_table = bv.start + read_int(bv, iat + n * (4 * 5) + 0x10, 4)
 
         name_addr = bv.start + read_int(bv, iat + n * (4 * 5) + 0xc, 4)
