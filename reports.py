@@ -1,6 +1,10 @@
-import peutils
 from binaryninja import log_info
+import binaryninja.interaction
+from binaryninja.flowgraph import FlowGraph, FlowGraphNode
+from binaryninja.function import DisassemblyTextLine, InstructionTextToken
+from binaryninja.enums import InstructionTextTokenType, BranchType
 
+from .data import files as pe_files
 from .pe_parsing import *
 
 def generate_report(bv):
@@ -85,7 +89,7 @@ def generate_relation_graph(bvs):
 
     for node in nodes:
         graph_node = FlowGraphNode(graph)
-        graph_node.lines = [node_labels[node]]
+        graph_node.lines = [str(node_labels[node])]
         graph.append(graph_node)
 
         if node.lower() in start_nodes and node in bv_nodes:
@@ -179,10 +183,10 @@ def generate_table_graph(bv):
                 ),
                 InstructionTextToken(
                     InstructionTextTokenType.RegisterToken
-                    if lib.name.lower() in peutils.files
+                    if lib.name.lower() in pe_files
                     else InstructionTextTokenType.CharacterConstantToken,
 
-                    "Loaded" if lib.name.lower() in peutils.files
+                    "Loaded" if lib.name.lower() in pe_files
                     else "Not loaded",
                 ),
                 InstructionTextToken(
@@ -194,8 +198,8 @@ def generate_table_graph(bv):
         ]
 
         exports = []
-        if lib.name.lower() in peutils.files:
-            exports = get_exports(peutils.files[lib.name.lower()])
+        if lib.name.lower() in pe_files:
+            exports = get_exports(pe_files[lib.name.lower()])
 
         n = 0
         for import_ in lib.imports:

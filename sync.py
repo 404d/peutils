@@ -3,22 +3,29 @@ from binaryninja.types import Symbol
 from binaryninja.enums import SymbolType
 from binaryninja.demangle import demangle_ms
 
-import peutils
-
-from peutils import pe_parsing
+from .data import files as pe_files
+from .pe_parsing import get_imports, get_exports
 
 
 def resolve_imports(bv):
-    libs = pe_parsing.get_imports(bv)
+    libs = get_imports(bv)
 
     for lib in libs:
-        if lib.name.lower() in peutils.files:
+        if lib.name.lower() in pe_files:
             resolve_imports_for_library(bv, lib)
 
 
+def resolve_type(type_):
+    # func_type = type_.target
+    # for parameter in func_type.parameters:
+    #     if parameter.position:
+    #         return None
+    return type_
+
+
 def resolve_imports_for_library(bv, lib):
-    source_bv = peutils.files[lib.name.lower()]
-    exports = pe_parsing.get_exports(source_bv)
+    source_bv = pe_files[lib.name.lower()]
+    exports = get_exports(source_bv)
     
     export_by_ord = {export.ord: export for export in exports}
 
@@ -81,6 +88,7 @@ def resolve_imports_for_library(bv, lib):
 
             try:
                 (type_, name) = bv.parse_type_string(type_string)
+                type_ = resolve_type(type_)
             except:
                 log_error("Invalid type, skipping")
 

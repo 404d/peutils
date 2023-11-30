@@ -1,10 +1,6 @@
 import codecs
 import sys
 
-import binaryninja.interaction
-from binaryninja.flowgraph import FlowGraph, FlowGraphNode
-from binaryninja.function import DisassemblyTextLine, InstructionTextToken
-from binaryninja.enums import InstructionTextTokenType, BranchType
 from binaryninja.log import log_warn
 
 if sys.version_info[0] == 3:
@@ -21,7 +17,7 @@ if None:
 
 
 def get_directory_addr(bv, directory_offset):
-    raw = bv.parent_view
+    raw = bv.parent_view if bv.parent_view else bv
     pe_offset = get_pe_header_addr(bv)
     # Quick and dirty size-agnostic cross-version bytes-to-int conversion
     field_offset = raw.read_int(pe_offset + directory_offset, 4)
@@ -34,7 +30,7 @@ def get_directory_addr(bv, directory_offset):
 
 
 def get_pe_magic(bv):
-    raw = bv.parent_view
+    raw = bv.parent_view if bv.parent_view else bv
     pe_offset = get_pe_header_addr(bv)
 
     return read_int(raw, pe_offset + 0x18, 2)
@@ -78,7 +74,7 @@ def read_int(bv, addr, len_=None):
 
 
 def get_pe_header_addr(bv):
-    raw = bv.parent_view
+    raw = bv.parent_view if bv.parent_view else bv if bv.parent_view else bv
     base_addr = raw.perform_get_start()
     pe_offset = read_int(raw, base_addr + 0x3c, 4)
     pe_addr = base_addr + pe_offset
@@ -117,7 +113,9 @@ def get_eat_name(bv):
         return ""
 
     dll_name_ptr = bv.start + read_int(bv, eat + 0xc, 4)
-    dll_name = bv.get_strings(dll_name_ptr)[0].value
+    dll_name = read_cstring(bv, dll_name_ptr)
+    if decode_as:
+        dll_name = dll_name.decode(decode_as)
     return dll_name
 
 

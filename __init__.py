@@ -25,13 +25,19 @@ Todo:
     - Looks like imports with jump stubs doesn't get their types set correctly?
 
 """
+import os
+import traceback
+
+import binaryninja
 from binaryninja.plugin import PluginCommand
+from binaryninja.interaction import (
+    TextLineField, DirectoryNameField,
+    get_form_input, show_message_box
+)
 from binaryninja import log_info
 
-from . import pe_parsing, reports, sync
-
-
-files = {}
+from . import pe_parsing, reports, sync, comhelper
+from .data import files
 
 
 def bv_is_pe(bv):
@@ -44,6 +50,43 @@ def all_bvs(func):
         bvs = files.values()
         # bvs = set([bv] + bvs)
         func(bvs)
+
+    return wrapper
+
+
+def select_bvs(func):
+
+    def wrapper(bv):
+        ext_field = TextLineField("Extensions", default="exe,dll")
+        dir_field = DirectoryNameField("Directory")
+        get_form_input([ext_field, dir_field], "Binary Dependency Graph")
+        exts = ['.' + ext for ext in ext_field.result.split(",") if ext]
+        if not exts:
+            show_message_box("Error", "No extensions specified")
+            return
+        directory = dir_field.result
+        if not os.path.exists(directory):
+            show_message_box("Error", "Directory does not exist")
+            return
+
+        bvs = []
+        try:
+            for root, dirs, files in os.walk(directory):
+                for file in files:
+                    if not file.endswith(tuple(exts)):
+                        continue
+                    path = os.path.join(root, file)
+                    bv = binaryninja.open_view(path, update_analysis=False)
+                    bvs.append(bv)
+                    if bv.view_type == "PE":
+                        bvs.append(bv)
+            func(bvs)
+        except Exception as e:
+            show_message_box("Error", traceback.format_exc())
+            return
+        finally:
+            for bv in bvs:
+                bv.file.close()
 
     return wrapper
 
@@ -67,7 +110,6 @@ PluginCommand.register(
     sync.resolve_imports, is_valid=bv_is_pe
 )
 
-
 PluginCommand.register(
     "PE\\Debug\\PE tables",
     "Show the IAT and EAT as seen by PE Utils",
@@ -77,4 +119,20 @@ PluginCommand.register(
     "PE\\Debug\\Binary relationship graph",
     "Show a relationship graph for the currently loaded BVs",
     all_bvs(reports.generate_relation_graph), is_valid=bv_is_pe
+)
+PluginCommand.register(
+    "PE\\Debug\\Binary relationship graph (selected)",
+    "Show a relationship graph for the currently loaded BVs",
+    select_bvs(reports.generate_relation_graph), is_valid=lambda _: True
+)
+
+PluginCommand.register_for_address(
+    "PE\\COM\\Resolve Interface ID",
+    "Resolve interface id of COM object",
+    comhelper.resolve_iid, is_valid=lambda bv, _: bv_is_pe(bv)
+)
+PluginCommand.register_for_address(
+    "PE\\COM\\Resolve Class ID",
+    "Resolve class id of COM object",
+    comhelper.resolve_clsid, is_valid=lambda bv, _: bv_is_pe(bv)
 )
