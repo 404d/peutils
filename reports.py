@@ -1,6 +1,10 @@
-import peutils
 from binaryninja import log_info
+import binaryninja.interaction
+from binaryninja.flowgraph import FlowGraph, FlowGraphNode
+from binaryninja.function import DisassemblyTextLine, InstructionTextToken
+from binaryninja.enums import InstructionTextTokenType, BranchType
 
+from .data import files as pe_files
 from .pe_parsing import *
 
 def generate_report(bv):
@@ -35,20 +39,22 @@ def generate_relation_graph(bvs):
 
     for bv in bvs:
         name = get_eat_name(bv)
-        nodes.add(name.lower())
-        bv_nodes.add(name.lower())
-        node_labels[name.lower()] = name
+        lower_name = name.lower()
+        nodes.add(lower_name)
+        bv_nodes.add(lower_name)
+        node_labels[lower_name] = name
 
         if not first_node:
-            first_node = name.lower()
+            first_node = lower_name
 
-        edges[name] = set()
+        edges[lower_name] = set()
 
         for library in get_imports(bv):
-            nodes.add(library.name.lower())
-            node_labels[library.name.lower()] = library.name
+            imp_lower_name = library.name.lower()
+            nodes.add(imp_lower_name)
+            node_labels[imp_lower_name] = library.name
 
-            edges[name.lower()].add(library.name.lower())
+            edges[lower_name].add(imp_lower_name)
 
     graph_nodes = {}
     graph = FlowGraph()
@@ -83,7 +89,7 @@ def generate_relation_graph(bvs):
 
     for node in nodes:
         graph_node = FlowGraphNode(graph)
-        graph_node.lines = [node_labels[node]]
+        graph_node.lines = [str(node_labels[node])]
         graph.append(graph_node)
 
         if node.lower() in start_nodes and node in bv_nodes:
@@ -177,10 +183,10 @@ def generate_table_graph(bv):
                 ),
                 InstructionTextToken(
                     InstructionTextTokenType.RegisterToken
-                    if lib.name.lower() in peutils.files
+                    if lib.name.lower() in pe_files
                     else InstructionTextTokenType.CharacterConstantToken,
 
-                    "Loaded" if lib.name.lower() in peutils.files
+                    "Loaded" if lib.name.lower() in pe_files
                     else "Not loaded",
                 ),
                 InstructionTextToken(
@@ -192,8 +198,8 @@ def generate_table_graph(bv):
         ]
 
         exports = []
-        if lib.name.lower() in peutils.files:
-            exports = get_exports(peutils.files[lib.name.lower()])
+        if lib.name.lower() in pe_files:
+            exports = get_exports(pe_files[lib.name.lower()])
 
         n = 0
         for import_ in lib.imports:
